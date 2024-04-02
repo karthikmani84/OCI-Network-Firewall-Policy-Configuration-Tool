@@ -1,0 +1,62 @@
+# OCI Network Firewall Policy Tools
+
+This repository contains a collection of Python scripts designed to work with Oracle Cloud Infrastructure (OCI) Network firewall policies. These scripts enable users to export firewall policy data, convert it between different formats, and manage it effectively.
+
+## Scripts Overview
+
+### Script 1: Export.py
+
+This script serves as the main entry point for the OCI Network Firewall Policy Tools. It provides a command-line interface for users to choose between exporting policies to JSON format or converting policies from JSON to Excel format.
+
+### Script 2: Export-Policies.py
+
+This script is responsible for exporting OCI Network firewall policy items to JSON files and further exporting details of these items using OCI CLI commands. It requires a valid Network Firewall Policy ID to function.
+
+### Script 3: Convert-Policies.py
+
+This script extracts data from JSON files containing information about OCI network firewall policy items and exports them to an Excel file. It processes various types of data such as security rules, address lists, services, and application lists.
+
+## Prerequisites
+
+- Python 3.x
+- OCI CLI installed and configured (for Scripts 2 and 3)
+- Pandas library installed (for Script 3)
+
+## Usage
+
+1. Ensure that you have the necessary prerequisites installed and configured.
+
+2. For Export.py
+   - Run the script and follow the prompts to select an option:
+    
+   ```
+   Export the OCI Network firewall policy using this tool!
+  Choose an option:
+   1. Export Policies to Json format
+   2. Convert Policies from Json to Excel Format
+     ```
+
+3. If you enter option 1 - Export-Policies.py Script will run 
+   - Provide a valid Network Firewall Policy ID when prompted. 
+   - Ensure that you have the required JSON files containing data (`security_rule_output.json`, `addresslist_output.json`, `service_output.json`, `servicelist_output.json`, `application_output.json`, `applicationlist_output.json`) in the same directory as the script.
+   
+Run `Export-Policies.py`:
+     ```
+     python3 Export-Policies.py
+     ```
+
+4.  If you enter option 2 - Convert-Policies.py 
+   - Ensure that you have the required JSON files containing data (`security_rule_output.json`, `addresslist_output.json`, `service_output.json`, `servicelist_output.json`, `application_output.json`, `applicationlist_output.json`) in the same directory as the script.
+   - Run `Export-Policies.py`:
+     ```
+     python3 Export-Policies.py
+     ```
+
+## Notes
+
+- Make sure to provide valid inputs when prompted, such as Network Firewall Policy IDs.
+- Ensure that you have the required JSON files available in the same directory as the scripts before running them.
+- Generated output files will be saved in the current working directory.
+- If you encounter any issues or errors during execution, please refer to the respective script's documentation or contact the repository maintainer.
+
+For any further assistance or inquiries, feel free to reach out to the repository maintainer.
