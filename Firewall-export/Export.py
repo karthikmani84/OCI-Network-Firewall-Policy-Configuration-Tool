@@ -9,8 +9,13 @@ def main():
     choice = input("Enter your choice (1 or 2): ")
 
     if choice == "1":
-        print("Calling Export-Policies.py...")
-        subprocess.run(["python3", "Export-Policies.py"])
+        sectoken = input(f"You've chosen to Export. Will you be using a security token? Y/N?")
+        if sectoken == 'Y':
+            print("Calling Export-Policies.py with token...")
+            subprocess.run(["python3", "Export-Policies.py", "-t"])
+        else:
+            print("Calling Export-Policies.py...")
+            subprocess.run(["python3", "Export-Policies.py"])            
     elif choice == "2":
         print("Calling Convert-Policies.py...")
         subprocess.run(["python3", "Convert-Policies.py"])

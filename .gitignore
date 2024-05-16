@@ -1,0 +1,8 @@
+*.log
+.DS_Store
+*.json
+*.xlsx
+!input_example.xlsx
+!output_example.xlsx
+boat_token.zip
+*.sh

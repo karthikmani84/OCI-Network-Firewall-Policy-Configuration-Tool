@@ -32,6 +32,46 @@ def excel_to_json_iplist(excel_file):
     
     write_json_to_file(json_list, 'iplist.json')
 
+
+def excel_to_json_url_lists(excel_file):
+    """Convert Excel sheet 'url_lists' to JSON."""
+    try:
+        df = pd.read_excel(excel_file, sheet_name='url_lists')
+
+        #else:
+            #print('columns present')
+        
+        json_list = []
+        # Iterate over the unique names
+        for name in df['name'].unique():
+            #print(name)
+            # Filter the DataFrame by the current name
+            filtered_df = df[df['name'] == name]
+            
+            # Create the 'urls' list
+            urls = [{"pattern": pattern, "type": "SIMPLE"} for pattern in filtered_df['pattern']]
+            
+            # Create the data dictionary for the current name
+            data_dict = {
+                "data": {
+                    "name": name,
+                    "urls": urls
+                }
+            }
+        json_list.append(data_dict)
+        write_json_to_file(json_list, 'url_lists.json')
+
+    except FileNotFoundError:
+        print(f"File '{excel_file}' not found.")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error reading Excel file: {e}")
+        sys.exit(1)
+    # Make sure the column names are correct
+    expected_columns = ['name', 'pattern']
+    if not all(col in df.columns for col in expected_columns):
+        raise ValueError(f"Expected columns {expected_columns} not found in the DataFrame. Found columns: {df.columns}")
+    
 def excel_to_json_service_list(excel_file):
     """
     Convert Excel sheet 'service' to JSON and write to 'services.json',
@@ -100,14 +140,18 @@ def excel_to_json_service_list(excel_file):
             json_list_applicationlist.append(json_obj_applicationlist)
 
 
+
+
     # Write data to services.json
-    write_json_to_file(json_list_service, 'services.json')
+    write_json_to_file(json_list_service, 'service_input.json')
     # Write data to servicelist.json
-    write_json_to_file(json_list_servicelist, 'servicelist.json')
+    write_json_to_file(json_list_servicelist, 'service_list_input.json')
     # Write data to application.json
-    write_json_to_file(json_list_application, 'application.json')
+    write_json_to_file(json_list_application, 'application_input.json')
     # Write data to applicationlist.json
-    write_json_to_file(json_list_applicationlist, 'applicationlist.json')
+    write_json_to_file(json_list_applicationlist, 'application_list_input.json')
+
+
 
 def replace_with_names(df_security_rules, df_iplist):
     """Replace IP addresses with corresponding names, preserving existing names."""
@@ -128,8 +172,8 @@ def replace_with_names(df_security_rules, df_iplist):
         else:
             return value
 
-    df_security_rules['Source'] = df_security_rules['Source'].apply(replace_with_names_single)
-    df_security_rules['Destination'] = df_security_rules['Destination'].apply(replace_with_names_single)
+    df_security_rules['Source Address Lists'] = df_security_rules['Source Address Lists'].apply(replace_with_names_single)
+    df_security_rules['Destination Address Lists'] = df_security_rules['Destination Address Lists'].apply(replace_with_names_single)
     
     return df_security_rules
 
@@ -147,17 +191,19 @@ def convert_to_json(df_security_rules):
     prev_rule_name = None
     
     for index, row in df_security_rules.iterrows():
-        source_addresses = [address.strip() for address in str(row['Source']).split(',') if address.strip()] if not pd.isna(row['Source']) and row['Source'] else []
-        destination_addresses = [address.strip() for address in str(row['Destination']).split(',') if address.strip()] if not pd.isna(row['Destination']) and row['Destination'] else []
+        source_addresses = [address.strip() for address in str(row['Source Address Lists']).split(',') if address.strip()] if not pd.isna(row['Source Address Lists']) and row['Source Address Lists'] else []
+        destination_addresses = [address.strip() for address in str(row['Destination Address Lists']).split(',') if address.strip()] if not pd.isna(row['Destination Address Lists']) and row['Destination Address Lists'] else []
         
         # Handling empty or NaN values for action
         action = row['Action'] if not pd.isna(row['Action']) and row['Action'] else "ALLOW"
         
         # Handling empty or NaN values for ports
-        service_ports = [port.strip() for port in str(row['Port']).split(',') if port.strip()] if not pd.isna(row['Port']) and row['Port'] else []
+        service_ports = [port.strip() for port in str(row['Service Lists']).split(',') if port.strip()] if not pd.isna(row['Service Lists']) and row['Service Lists'] else []
         
+        url_lists = [url.strip() for url in str(row['Url Lists']).split(',') if url.strip()] if not pd.isna(row['Url Lists']) and row['Url Lists'] else []
+
         # Handling empty or NaN values for application
-        icmp_code = [code.strip() for code in str(row['Application']).split(',') if code.strip()] if not pd.isna(row['Application']) and row['Application'] else []
+        icmp_code = [code.strip() for code in str(row['Application Lists']).split(',') if code.strip()] if not pd.isna(row['Application Lists']) and row['Application Lists'] else []
         
         # Create the JSON object excluding empty source and destination fields
         json_obj = {
@@ -166,7 +212,7 @@ def convert_to_json(df_security_rules):
                 "sourceAddress": source_addresses,
                 "destinationAddress": destination_addresses,
                 "service": service_ports,
-                "url": [],
+                "url": url_lists,
                 "application": icmp_code
             },
             "position": {"afterRule": prev_rule_name} if prev_rule_name else {},
@@ -202,6 +248,7 @@ def main():
         excel_to_json(args.input)
         excel_to_json_iplist(args.input)
         excel_to_json_service_list(args.input)
+        excel_to_json_url_lists(args.input)
     else:
         print("Please provide the input Excel file name using -i or --input option.")
         sys.exit(1)

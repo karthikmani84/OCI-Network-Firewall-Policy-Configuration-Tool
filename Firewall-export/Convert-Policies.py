@@ -1,4 +1,5 @@
 import pandas as pd
+from openpyxl import load_workbook
 import json
 import os
 
@@ -20,7 +21,8 @@ def load_json(file_path):
 output_file = "output.xlsx"
 existing_sheets = {}
 if os.path.exists(output_file):
-    existing_sheets = pd.read_excel(output_file, sheet_name=None)
+    os.remove(output_file)
+    pd.DataFrame().to_excel(output_file, index=False)
 else:
     # Create the Excel file with an empty DataFrame
     pd.DataFrame().to_excel(output_file, index=False)
@@ -33,12 +35,28 @@ for rule in security_rules_data:
     condition_tree = rule_data.get('condition', {})
     security_rules_df = pd.concat([security_rules_df, pd.DataFrame({
         'name': [rule_data.get('name')],
-        'Source': [", ".join(condition_tree.get('source-address', []))],
-        'Destination': [", ".join(condition_tree.get('destination-address', []))],
-        'Port': [", ".join(condition_tree.get('service', []))],
-        'Application': [", ".join(condition_tree.get('application', []))],
+        'Source Address Lists': [", ".join(condition_tree.get('source-address', []))],
+        'Destination Address Lists': [", ".join(condition_tree.get('destination-address', []))],
+        'Service Lists': [", ".join(condition_tree.get('service', []))],
+        'Application Lists': [", ".join(condition_tree.get('application', []))],
+        'Url Lists': [", ".join(condition_tree.get('url', []))],
         'Action': [rule_data.get('action')]
     })])
+
+# Process 'url-list' data
+url_list_data = load_json("url_list_output.json")
+urls_to_append = []
+url_list_df = pd.DataFrame()
+for item in url_list_data:
+    name = item['data'].get('name')
+    #print(item['data'].get('name'))
+    urls = item['data'].get('urls', [])
+    #print(item['data'].get('urls', []))
+    for url in urls:
+        pattern = url.get('pattern', '')
+        urls_to_append.append({'name': name, 'pattern': pattern})
+        url_list_df = pd.DataFrame(urls_to_append)
+#print(url_list_df)
 
 # Process 'iplist' data
 iplist_data = load_json("addresslist_output.json")
@@ -50,10 +68,12 @@ for entry in iplist_data:
         'addresses': [", ".join(entry_data.get('addresses', []))]
     })])
 
-# Write 'security-rules' and 'iplist' sheets
+# Write 'security-rules' and 'iplist' and url_lists sheets
 with pd.ExcelWriter(output_file, mode='a', if_sheet_exists='replace') as writer:
     security_rules_df.to_excel(writer, sheet_name='security-rules', index=False)
     iplist_df.to_excel(writer, sheet_name='iplist', index=False)
+    url_list_df.to_excel(writer, sheet_name='url_lists', index=False)
+
 
 # Load existing 'service' sheet from the output Excel file or create it if it doesn't exist
 if 'service' in existing_sheets:
@@ -142,10 +162,22 @@ df_applist_services = pd.DataFrame({
 with pd.ExcelWriter(output_file, mode='a', if_sheet_exists='replace') as writer:
     combined_services_df = pd.concat([existing_services_df, service_individual_df, df_new_services, df_Application, df_applist_services], ignore_index=True)
     combined_services_df.to_excel(writer, sheet_name='service', index=False)
-
     # Write other sheets
     for sheet_name, df in existing_sheets.items():
-        if sheet_name not in ['security-rules', 'iplist', 'service']:
+        if sheet_name not in ['security-rules', 'iplist', 'service', 'url_lists']:
             df.to_excel(writer, sheet_name=sheet_name, index=False)
 print()
+
+#makes sure sheet1 isnt in the file.
+wb = load_workbook("output.xlsx")
+# Check if the sheet exists
+if "Sheet1" in wb.sheetnames:
+    # Get the sheet
+    sheet = wb["Sheet1"]
+    # Remove the sheet
+    wb.remove(sheet)
+
+# Save the changes
+wb.save("output.xlsx")
+
 print("Excel file created and updated successfully.")
