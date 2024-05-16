@@ -37,7 +37,10 @@ def excel_to_json_url_lists(excel_file):
     """Convert Excel sheet 'url_lists' to JSON."""
     try:
         df = pd.read_excel(excel_file, sheet_name='url_lists')
-
+        # Make sure the column names are correct
+        expected_columns = ['name', 'pattern']
+        if not all(col in df.columns for col in expected_columns):
+            raise ValueError(f"Expected columns {expected_columns} not found in the DataFrame. Found columns: {df.columns}")
         #else:
             #print('columns present')
         
@@ -50,7 +53,7 @@ def excel_to_json_url_lists(excel_file):
             
             # Create the 'urls' list
             urls = [{"pattern": pattern, "type": "SIMPLE"} for pattern in filtered_df['pattern']]
-            
+
             # Create the data dictionary for the current name
             data_dict = {
                 "data": {
@@ -58,7 +61,7 @@ def excel_to_json_url_lists(excel_file):
                     "urls": urls
                 }
             }
-        json_list.append(data_dict)
+            json_list.append(data_dict)
         write_json_to_file(json_list, 'url_lists.json')
 
     except FileNotFoundError:
@@ -67,10 +70,6 @@ def excel_to_json_url_lists(excel_file):
     except Exception as e:
         print(f"Error reading Excel file: {e}")
         sys.exit(1)
-    # Make sure the column names are correct
-    expected_columns = ['name', 'pattern']
-    if not all(col in df.columns for col in expected_columns):
-        raise ValueError(f"Expected columns {expected_columns} not found in the DataFrame. Found columns: {df.columns}")
     
 def excel_to_json_service_list(excel_file):
     """
