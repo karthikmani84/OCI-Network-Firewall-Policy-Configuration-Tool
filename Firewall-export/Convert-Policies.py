@@ -2,6 +2,32 @@ import pandas as pd
 from openpyxl import load_workbook
 import json
 import os
+import logging
+
+def setup_logging(log_filename, logger_name, console_level, file_level):
+    """
+    setup_logging
+    
+    Takes in
+    log_filename
+    logger_name
+    console_level
+    file_level
+    
+    Returns logger
+    """
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(logging.DEBUG)
+    fh = logging.FileHandler(log_filename)
+    fh.setLevel(file_level)
+    ch = logging.StreamHandler()
+    ch.setLevel(console_level)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    fh.setFormatter(formatter)
+    ch.setFormatter(formatter)
+    logger.addHandler(fh)
+    logger.addHandler(ch)
+    return logger
 
 # Function to extract port ranges
 def extract_port_ranges(port_ranges):
@@ -17,17 +43,32 @@ def load_json(file_path):
     with open(file_path, "r") as file:
         return json.load(file)
 
+
+
+## MAIN
+
+# set up logging stuff
+logger = setup_logging(
+    log_filename="convert_policies.log", 
+    logger_name="convert_policies", 
+    console_level=logging.INFO, 
+    file_level=logging.DEBUG
+)
+
 # Load existing Excel file if it exists
 output_file = "output.xlsx"
 existing_sheets = {}
 if os.path.exists(output_file):
+    logger.debug(f'existing file found, purging and recreating.')
     os.remove(output_file)
     pd.DataFrame().to_excel(output_file, index=False)
 else:
     # Create the Excel file with an empty DataFrame
+    logger.debug(f'No file found, creating.')
     pd.DataFrame().to_excel(output_file, index=False)
 
 # Process 'security-rule' data
+logger.debug(f'-Processing Security Rules-')
 security_rules_data = load_json("security_rule_output.json")
 security_rules_df = pd.DataFrame()
 for rule in security_rules_data:
@@ -44,6 +85,7 @@ for rule in security_rules_data:
     })])
 
 # Process 'url-list' data
+logger.debug(f'-Processing URL Lists-')
 url_list_data = load_json("url_list_output.json")
 urls_to_append = []
 url_list_df = pd.DataFrame()
@@ -58,7 +100,9 @@ for item in url_list_data:
         url_list_df = pd.DataFrame(urls_to_append)
 #print(url_list_df)
 
+
 # Process 'iplist' data
+logger.debug(f'-Processing IP Lists-')
 iplist_data = load_json("addresslist_output.json")
 iplist_df = pd.DataFrame()
 for entry in iplist_data:
@@ -69,6 +113,8 @@ for entry in iplist_data:
     })])
 
 # Write 'security-rules' and 'iplist' and url_lists sheets
+logger.debug(f'-Writing security-rules, iplist, and url_lists sheets-')
+
 with pd.ExcelWriter(output_file, mode='a', if_sheet_exists='replace') as writer:
     security_rules_df.to_excel(writer, sheet_name='security-rules', index=False)
     iplist_df.to_excel(writer, sheet_name='iplist', index=False)
@@ -79,11 +125,13 @@ with pd.ExcelWriter(output_file, mode='a', if_sheet_exists='replace') as writer:
 if 'service' in existing_sheets:
     existing_services_df = existing_sheets['service']
 else:
+    logger.debug(f'creating service sheet')
     existing_services_df = pd.DataFrame()
 
 # Process 'service' data
 service_data = load_json("service_output.json")
 service_individual_df = pd.DataFrame()  # Separate dataframe for individual services
+logger.debug(f'creating individual services from json')
 for entry in service_data:
     entry_data = entry.get('data', {})
     minimum_ports, maximum_ports = extract_port_ranges(entry_data.get('port-ranges', []))
@@ -102,6 +150,7 @@ app_names = []
 icmp_types = []
 
 # Extract data from JSON
+logger.debug(f'creating applications from json')
 for entry in Application_group_data:
     data = entry.get('data', {})
     app_names.append(data.get('name'))
@@ -122,10 +171,15 @@ group_names = []
 group_services = []
 
 # Extract data from JSON
+logger.debug(f'creating service groups from json')
 for entry in service_group_data:
+
     data = entry.get('data', {})
+    logger.debug(f'service group data: {data}')
     services_list = data.get('services', [])
-    if len(services_list) > 1:
+    logger.debug(f'service list services: {services_list}')
+
+    if len(services_list) >= 1:
         group_names.append(data.get('name'))
         group_services.append(", ".join(services_list))
 
@@ -147,7 +201,7 @@ grp_services = []
 for entry in Application_group_data:
     data = entry.get('data', {})
     services_list = data.get('apps', [])
-    if len(services_list) > 1:
+    if len(services_list) >= 1:
         grp_names.append(data.get('name'))
         grp_services.append(", ".join(services_list))
 

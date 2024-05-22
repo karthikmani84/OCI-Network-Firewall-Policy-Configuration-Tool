@@ -136,7 +136,7 @@ def main():
         # set up logging stuff
         logger = setup_logging(
             log_filename="export_policies.log", 
-            logger_name="oci-access-check", 
+            logger_name="export_policies", 
             console_level=logging.INFO, 
             file_level=logging.DEBUG
         )
