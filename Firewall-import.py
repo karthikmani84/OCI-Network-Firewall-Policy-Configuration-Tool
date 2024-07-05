@@ -2,8 +2,9 @@ import argparse
 import pandas as pd
 import json
 import sys
+import logging
 
-def write_json_to_file(data, filename):
+def write_json_to_file(data, filename, logger):
     """Write JSON data to a file."""
     try:
         with open(filename, 'w') as json_file:
@@ -12,7 +13,7 @@ def write_json_to_file(data, filename):
         print(f"Error writing to file: {e}")
         sys.exit(1)
 
-def excel_to_json_iplist(excel_file):
+def excel_to_json_iplist(excel_file, logger):
     """Convert Excel sheet 'iplist' to JSON."""
     try:
         df = pd.read_excel(excel_file, sheet_name='iplist')
@@ -30,10 +31,10 @@ def excel_to_json_iplist(excel_file):
         json_obj = {"name": name, "type": "IP", "addresses": addresses}
         json_list.append(json_obj)
     
-    write_json_to_file(json_list, 'iplist.json')
+    write_json_to_file(json_list, 'iplist.json', logger)
 
 
-def excel_to_json_url_lists(excel_file):
+def excel_to_json_url_lists(excel_file, logger):
     """Convert Excel sheet 'url_lists' to JSON."""
     try:
         df = pd.read_excel(excel_file, sheet_name='url_lists')
@@ -62,7 +63,7 @@ def excel_to_json_url_lists(excel_file):
                 }
             }
             json_list.append(data_dict)
-        write_json_to_file(json_list, 'url_lists.json')
+        write_json_to_file(json_list, 'url_lists.json', logger)
 
     except FileNotFoundError:
         print(f"File '{excel_file}' not found.")
@@ -71,7 +72,7 @@ def excel_to_json_url_lists(excel_file):
         print(f"Error reading Excel file: {e}")
         sys.exit(1)
     
-def excel_to_json_service_list(excel_file):
+def excel_to_json_service_list(excel_file, logger):
     """
     Convert Excel sheet 'service' to JSON and write to 'services.json',
     and create 'servicelist.json' based on service types.
@@ -88,6 +89,16 @@ def excel_to_json_service_list(excel_file):
     json_list_servicelist = []
     json_list_application = []
     json_list_applicationlist = []
+
+
+    #builds a list of all services to later check that service lists contain valid services.
+    service_items_list = []
+    for index, row in df.iterrows():
+        name = row['name']
+        service_type = row['type']
+        if service_type in ["TCP_SERVICE", "UDP_SERVICE"]:
+            service_items_list.append(name)        
+
 
     for index, row in df.iterrows():
         name = row['name']
@@ -115,7 +126,14 @@ def excel_to_json_service_list(excel_file):
         elif service_type == "SERVICE_GROUP":
             services = row['services']  # Assuming 'services' is a column in your Excel sheet
             if isinstance(services, str) and services.strip():  # Check if 'services' is non-empty string
-                json_obj_servicelist = {"name": name, "services":[service.strip() for service in services.split(',')]}
+                matching_list = []
+                for service in services.split(','):
+                    if service in service_items_list:
+                        matching_list.append(service.strip())
+                    else:
+                        logger.debug(f'Error: {name} : {service} - service not in available services.')
+
+                json_obj_servicelist = {"name": name, "services":[matched_service.strip() for matched_service in matching_list]}
 
         # Append non-empty JSON objects to the list
         if json_obj_servicelist is not None:
@@ -142,17 +160,17 @@ def excel_to_json_service_list(excel_file):
 
 
     # Write data to services.json
-    write_json_to_file(json_list_service, 'service_input.json')
+    write_json_to_file(json_list_service, 'service_input.json', logger)
     # Write data to servicelist.json
-    write_json_to_file(json_list_servicelist, 'service_list_input.json')
+    write_json_to_file(json_list_servicelist, 'service_list_input.json', logger)
     # Write data to application.json
-    write_json_to_file(json_list_application, 'application_input.json')
+    write_json_to_file(json_list_application, 'application_input.json', logger)
     # Write data to applicationlist.json
-    write_json_to_file(json_list_applicationlist, 'application_list_input.json')
+    write_json_to_file(json_list_applicationlist, 'application_list_input.json', logger)
 
 
 
-def replace_with_names(df_security_rules, df_iplist):
+def replace_with_names(df_security_rules, df_iplist, logger):
     """Replace IP addresses with corresponding names, preserving existing names."""
     df_security_rules.columns = df_security_rules.columns.str.strip()
     address_to_name = dict(zip(df_iplist['addresses'], df_iplist['name']))
@@ -176,7 +194,7 @@ def replace_with_names(df_security_rules, df_iplist):
     
     return df_security_rules
 
-def convert_to_json(df_security_rules):
+def convert_to_json(df_security_rule, logger):
     """
     Convert security rules DataFrame to a list of JSON objects.
 
@@ -189,7 +207,7 @@ def convert_to_json(df_security_rules):
     json_list = []
     prev_rule_name = None
     
-    for index, row in df_security_rules.iterrows():
+    for index, row in df_security_rule.iterrows():
         source_addresses = [address.strip() for address in str(row['Source Address Lists']).split(',') if address.strip()] if not pd.isna(row['Source Address Lists']) and row['Source Address Lists'] else []
         destination_addresses = [address.strip() for address in str(row['Destination Address Lists']).split(',') if address.strip()] if not pd.isna(row['Destination Address Lists']) and row['Destination Address Lists'] else []
         
@@ -222,7 +240,7 @@ def convert_to_json(df_security_rules):
     
     return json_list
 
-def excel_to_json(excel_file):
+def excel_to_json(excel_file, logger):
     """Convert Excel sheet 'security-rules' to JSON."""
     try:
         df_security_rules = pd.read_excel(excel_file, sheet_name='security-rules')
@@ -236,21 +254,81 @@ def excel_to_json(excel_file):
     
     df_security_rules = replace_with_names(df_security_rules, df_iplist)
     json_output = convert_to_json(df_security_rules)
-    write_json_to_file(json_output, 'securityrules.json')
+    write_json_to_file(json_output, 'securityrules.json', logger)
+
+
+def setup_logging(log_filename, logger_name, console_level, file_level):
+    """
+    setup_logging
+    
+    Takes in
+    log_filename
+    logger_name
+    console_level
+    file_level
+    
+    Returns logger
+    """
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(logging.DEBUG)
+    fh = logging.FileHandler(log_filename)
+    fh.setLevel(file_level)
+    ch = logging.StreamHandler()
+    ch.setLevel(console_level)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    fh.setFormatter(formatter)
+    ch.setFormatter(formatter)
+    logger.addHandler(fh)
+    logger.addHandler(ch)
+    return logger
+
+def parse_arguments(logger):
+    """
+    parse_arguments
+
+    Takes in
+    logger
+
+    Returns args
+    """
+    logger.debug("Parsing args")
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-i', '--input', type=str, help='Input Excel file name')
+    parser = argparse.ArgumentParser(description='Convert Excel file to JSON')
+    args = parser.parse_args()
+    logger.debug("Done parsing args")
+    logger.debug(f"args = {args}")
+    return args 
+
 
 def main():
-    parser = argparse.ArgumentParser(description='Convert Excel file to JSON')
-    parser.add_argument('-i', '--input', type=str, help='Input Excel file name')
-    args = parser.parse_args()
+    try: 
+        # set up logging stuff
+        logger = setup_logging(
+            log_filename="import_policies.log", 
+            logger_name="import_policies", 
+            console_level=logging.INFO, 
+            file_level=logging.DEBUG
+        )
+        args = parse_arguments(logger)
+        logger.info(f"STARTING IMPORT-POLICIES.PY")
 
-    if args.input:
-        excel_to_json(args.input)
-        excel_to_json_iplist(args.input)
-        excel_to_json_service_list(args.input)
-        excel_to_json_url_lists(args.input)
-    else:
-        print("Please provide the input Excel file name using -i or --input option.")
-        sys.exit(1)
+        if args.input:
+            excel_to_json(args.input, logger)
+            excel_to_json_iplist(args.input, logger)
+            excel_to_json_service_list(args.input, logger)
+            excel_to_json_url_lists(args.input, logger)
+        else:
+            print("Please provide the input Excel file name using -i or --input option.")
+            sys.exit(1)
+
+        logger.info(f"FINISHED IMPORT-POLICIES.PY")
+    except SystemExit:
+        pass # nothing wrong here, just exit if we catch this
+
+    except BaseException as e:
+        logger.exception(f"Something went wrong:  {e}")
+
 
 if __name__ == "__main__":
     main()
