@@ -292,9 +292,8 @@ def parse_arguments(logger):
     Returns args
     """
     logger.debug("Parsing args")
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-i', '--input', type=str, help='Input Excel file name')
     parser = argparse.ArgumentParser(description='Convert Excel file to JSON')
+    parser.add_argument('-i', '--input', type=str, help='Input Excel file name')
     args = parser.parse_args()
     logger.debug("Done parsing args")
     logger.debug(f"args = {args}")
